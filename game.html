@@ -1,0 +1,620 @@
+<!-- ... existing code ... -->
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>STICK DUEL: SPRING ARENA</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
+  <style>
+<!-- ... existing code ... -->
+          <div id="hudRoundLabel" class="font-display text-[10px] sm:text-xs font-bold uppercase tracking-widest text-slate-300">RONDE 1</div>
+          <div id="hudTimer" class="font-display text-xl sm:text-3xl font-bold tracking-wider text-white tabular-nums leading-tight">90</div>
+          <div id="hudModeSub" class="text-[9px] sm:text-[10px] font-medium text-slate-400 truncate max-w-full">3 NYAWA</div>
+          <div id="hudNetBadge" class="mt-0.5 hidden rounded-full bg-sky-500/20 border border-sky-400/40 px-2 py-0.2 text-[9px] font-bold text-sky-200">🌐 ONLINE</div>
+          <div class="pointer-events-auto mt-1.5 flex items-center gap-1.5">
+<!-- ... existing code ... -->
+      <!-- Match Rules Row -->
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-3 mb-5">
+        <!-- P2 Mode Toggle -->
+        <div class="rounded-2xl bg-slate-900/75 border border-white/10 p-3.5">
+          <div class="text-[11px] font-semibold uppercase tracking-wider text-slate-400 mb-2">Mode & Lawan Pemain 2</div>
+          <div class="grid grid-cols-3 gap-1.5">
+            <button id="modeHumanBtn" class="btn-arcade rounded-xl border px-2 py-2 text-[11px] font-bold transition bg-emerald-500/20 border-emerald-400 text-emerald-200">
+              👥 2P Lokal
+            </button>
+            <button id="modeBotBtn" class="btn-arcade rounded-xl border px-2 py-2 text-[11px] font-bold transition bg-slate-800/70 border-white/10 text-slate-300 hover:bg-slate-800">
+              🤖 Bot AI
+            </button>
+            <button id="modeOnlineBtn" class="btn-arcade rounded-xl border px-2 py-2 text-[11px] font-bold transition bg-slate-800/70 border-white/10 text-slate-300 hover:bg-slate-800">
+              🌐 2 Perangkat
+            </button>
+          </div>
+          <div id="botDiffRow" class="mt-2.5 hidden items-center justify-between gap-2 text-xs">
+            <span class="text-slate-400">Kesulitan Bot:</span>
+            <div class="flex gap-1">
+              <button data-bot="chill" class="bot-diff-btn rounded-lg px-2 py-1 text-[11px] font-semibold bg-slate-800 text-slate-300 border border-white/10">Santai</button>
+              <button data-bot="duelist" class="bot-diff-btn rounded-lg px-2 py-1 text-[11px] font-semibold bg-emerald-500/25 text-emerald-200 border border-emerald-400/50">Petarung</button>
+              <button data-bot="master" class="bot-diff-btn rounded-lg px-2 py-1 text-[11px] font-semibold bg-slate-800 text-slate-300 border border-white/10">Master</button>
+            </div>
+          </div>
+          <div id="onlineRoomPanel" class="mt-2.5 hidden flex-col gap-2 rounded-xl bg-slate-950/80 border border-sky-400/25 p-2.5 text-xs">
+            <div class="flex items-center justify-between gap-2">
+              <span id="onlineRoleLabel" class="font-semibold text-sky-300">Pilih Host atau Gabung</span>
+              <span id="onlineStatusDot" class="text-[11px] font-semibold text-amber-300">Belum terhubung</span>
+            </div>
+            <div class="grid grid-cols-2 gap-1.5">
+              <button id="hostRoomBtn" type="button" class="btn-arcade rounded-lg bg-sky-500/20 hover:bg-sky-500/30 border border-sky-400/50 px-2 py-1.5 text-[11px] font-bold text-sky-200">
+                📡 Buat Ruang (P1)
+              </button>
+              <div class="flex gap-1">
+                <input id="joinCodeInput" type="text" maxlength="8" placeholder="KODE" class="w-full rounded-lg bg-slate-900 border border-white/15 px-2 py-1 text-[11px] font-mono uppercase text-white placeholder-slate-500 focus:outline-none focus:border-emerald-400" />
+                <button id="joinRoomBtn" type="button" class="btn-arcade shrink-0 rounded-lg bg-emerald-500/25 hover:bg-emerald-500/35 border border-emerald-400/50 px-2 py-1 text-[11px] font-bold text-emerald-200">
+                  Masuk
+                </button>
+              </div>
+            </div>
+            <div id="roomCodeBox" class="hidden items-center justify-between rounded-lg bg-slate-900 border border-white/10 px-2.5 py-1.5">
+              <span class="text-[11px] text-slate-400">Kode Ruang: <strong id="roomCodeDisplay" class="font-mono text-sm tracking-widest text-amber-300">------</strong></span>
+              <button id="copyRoomCodeBtn" type="button" class="rounded bg-slate-800 hover:bg-slate-700 px-2 py-0.5 text-[10px] font-semibold text-sky-200">Salin</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Match Format -->
+<!-- ... existing code ... -->
+    // 3. APPLICATION STATE & MATCH SETTINGS
+    // --------------------------------------------------------------------------
+    const gameState = {
+      screen: 'start', // 'start' | 'playing' | 'paused' | 'victory'
+      playMode: 'human', // 'human' | 'bot' | 'online'
+      p2Bot: false,
+      botDifficulty: 'duelist', // 'chill' | 'duelist' | 'master'
+      winMode: 'stocks', // 'stocks' | 'rounds'
+      allowSwap: true,
+      p1Loadout: 'sword',
+      p2Loadout: 'shuriken',
+
+      // 2-device online multiplayer state
+      netRole: null, // null | 'host' | 'guest'
+      netConnected: false,
+      roomCode: '',
+      remoteInput: {
+        left: false,
+        right: false,
+        guard: false
+      },
+
+      roundNumber: 1,
+<!-- ... existing code ... -->
+    // --------------------------------------------------------------------------
+    // 7. INPUT HANDLING (CLEAN BLUR/PAUSE SAFETY)
+    // --------------------------------------------------------------------------
+    const keysDown = new Set();
+
+    // --------------------------------------------------------------------------
+    // 7B. TWO-DEVICE MULTIPLAYER SYNC (PEERJS WEBRTC DATA CHANNEL)
+    // --------------------------------------------------------------------------
+    const netSync = {
+      peer: null,
+      conn: null,
+      stateSyncTimer: 0,
+
+      setStatus(text, colorClass = 'text-amber-300') {
+        const el = document.getElementById('onlineStatusDot');
+        if (el) {
+          el.textContent = text;
+          el.className = `text-[11px] font-semibold ${colorClass}`;
+        }
+      },
+
+      disconnect() {
+        if (this.conn) {
+          try { this.conn.close(); } catch (_) {}
+          this.conn = null;
+        }
+        if (this.peer) {
+          try { this.peer.destroy(); } catch (_) {}
+          this.peer = null;
+        }
+        gameState.netConnected = false;
+        gameState.netRole = null;
+        gameState.roomCode = '';
+        gameState.remoteInput = { left: false, right: false, guard: false };
+        const box = document.getElementById('roomCodeBox');
+        if (box) {
+          box.classList.add('hidden');
+          box.classList.remove('flex');
+        }
+        this.setStatus('Belum terhubung', 'text-amber-300');
+      },
+
+      generateCode() {
+        const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+        let out = '';
+        for (let i = 0; i < 6; i++) {
+          out += chars[Math.floor(Math.random() * chars.length)];
+        }
+        return out;
+      },
+
+      createHostRoom() {
+        if (typeof Peer === 'undefined') {
+          this.setStatus('PeerJS gagal dimuat', 'text-rose-400');
+          return;
+        }
+        this.disconnect();
+        gameState.playMode = 'online';
+        gameState.p2Bot = false;
+        gameState.netRole = 'host';
+        const code = this.generateCode();
+        gameState.roomCode = code;
+
+        this.setStatus('Membuat ruang...', 'text-sky-300');
+        const peerId = `STICKDUEL-${code}`;
+        this.peer = new Peer(peerId);
+
+        this.peer.on('open', () => {
+          document.getElementById('roomCodeDisplay').textContent = code;
+          const box = document.getElementById('roomCodeBox');
+          box.classList.remove('hidden');
+          box.classList.add('flex');
+          this.setStatus('Menunggu P2...', 'text-amber-300');
+          syncStartScreenUI();
+        });
+
+        this.peer.on('connection', (connection) => {
+          this.bindConnection(connection);
+        });
+
+        this.peer.on('error', () => {
+          this.setStatus('Gagal buat ruang', 'text-rose-400');
+        });
+      },
+
+      joinRoom(rawCode) {
+        if (typeof Peer === 'undefined') {
+          this.setStatus('PeerJS gagal dimuat', 'text-rose-400');
+          return;
+        }
+        const code = (rawCode || '').trim().toUpperCase();
+        if (code.length < 4) {
+          this.setStatus('Kode tidak valid', 'text-rose-400');
+          return;
+        }
+        this.disconnect();
+        gameState.playMode = 'online';
+        gameState.p2Bot = false;
+        gameState.netRole = 'guest';
+        gameState.roomCode = code;
+
+        this.setStatus('Menghubungkan...', 'text-sky-300');
+        this.peer = new Peer();
+
+        this.peer.on('open', () => {
+          const connection = this.peer.connect(`STICKDUEL-${code}`, { reliable: true });
+          this.bindConnection(connection);
+        });
+
+        this.peer.on('error', () => {
+          this.setStatus('Ruang tidak ditemukan', 'text-rose-400');
+        });
+      },
+
+      bindConnection(connection) {
+        this.conn = connection;
+        connection.on('open', () => {
+          gameState.netConnected = true;
+          this.setStatus('Terhubung!', 'text-emerald-400');
+          this.send({
+            type: 'hello_loadout',
+            role: gameState.netRole,
+            weapon: gameState.netRole === 'host' ? gameState.p1Loadout : gameState.p2Loadout,
+            winMode: gameState.winMode,
+            allowSwap: gameState.allowSwap
+          });
+          syncStartScreenUI();
+        });
+
+        connection.on('data', (msg) => {
+          this.handleMessage(msg);
+        });
+
+        connection.on('close', () => {
+          gameState.netConnected = false;
+          this.setStatus('Terputus', 'text-rose-400');
+          syncStartScreenUI();
+        });
+
+        connection.on('error', () => {
+          gameState.netConnected = false;
+          this.setStatus('Koneksi error', 'text-rose-400');
+          syncStartScreenUI();
+        });
+      },
+
+      send(payload) {
+        if (this.conn && this.conn.open && gameState.netConnected) {
+          try {
+            this.conn.send(payload);
+          } catch (_) {}
+        }
+      },
+
+      handleMessage(msg) {
+        if (!msg || !msg.type) return;
+
+        if (msg.type === 'hello_loadout') {
+          if (gameState.netRole === 'host' && msg.weapon && WEAPONS[msg.weapon]) {
+            gameState.p2Loadout = msg.weapon;
+            if (p2) p2.weapon = msg.weapon;
+            syncStartScreenUI();
+          } else if (gameState.netRole === 'guest') {
+            if (msg.weapon && WEAPONS[msg.weapon]) {
+              gameState.p1Loadout = msg.weapon;
+              if (p1) p1.weapon = msg.weapon;
+            }
+            if (msg.winMode) gameState.winMode = msg.winMode;
+            if (typeof msg.allowSwap === 'boolean') gameState.allowSwap = msg.allowSwap;
+            syncStartScreenUI();
+          }
+          return;
+        }
+
+        if (msg.type === 'loadout_update') {
+          if (msg.player === 1 && WEAPONS[msg.weapon]) {
+            gameState.p1Loadout = msg.weapon;
+            if (p1) p1.weapon = msg.weapon;
+          } else if (msg.player === 2 && WEAPONS[msg.weapon]) {
+            gameState.p2Loadout = msg.weapon;
+            if (p2) p2.weapon = msg.weapon;
+          }
+          syncStartScreenUI();
+          return;
+        }
+
+        if (msg.type === 'start_match') {
+          if (msg.winMode) gameState.winMode = msg.winMode;
+          if (typeof msg.allowSwap === 'boolean') gameState.allowSwap = msg.allowSwap;
+          if (msg.p1Loadout && WEAPONS[msg.p1Loadout]) gameState.p1Loadout = msg.p1Loadout;
+          if (msg.p2Loadout && WEAPONS[msg.p2Loadout]) gameState.p2Loadout = msg.p2Loadout;
+          startNewMatch(true);
+          return;
+        }
+
+        // Guest sends P2 controls to Host
+        if (gameState.netRole === 'host' && msg.type === 'p2_state') {
+          gameState.remoteInput.left = Boolean(msg.left);
+          gameState.remoteInput.right = Boolean(msg.right);
+          gameState.remoteInput.guard = Boolean(msg.guard);
+          return;
+        }
+
+        if (gameState.netRole === 'host' && msg.type === 'p2_action' && p2) {
+          if (msg.action === 'jump') p2.jump();
+          else if (msg.action === 'drop') p2.dropPlatform();
+          else if (msg.action === 'attack') {
+            p2.primaryAttack(p1);
+            p2.setGuard(true);
+          } else if (msg.action === 'special') {
+            p2.specialSkill(p1);
+          } else if (msg.action === 'dash') {
+            p2.dash(msg.dir || 0);
+          } else if (msg.action === 'swap' && gameState.allowSwap) {
+            p2.swapWeapon();
+          }
+          return;
+        }
+
+        // Host broadcasts authoritative fighter snapshot to Guest
+        if (gameState.netRole === 'guest' && msg.type === 'world_snap' && p1 && p2) {
+          this.applyWorldSnapshot(msg.snap);
+        }
+      },
+
+      applyWorldSnapshot(s) {
+        if (!s || !s.p1 || !s.p2) return;
+        p1.x = s.p1.x; p1.y = s.p1.y; p1.vx = s.p1.vx; p1.vy = s.p1.vy;
+        p1.facing = s.p1.facing; p1.hp = s.p1.hp; p1.stamina = s.p1.stamina;
+        p1.mana = s.p1.mana; p1.stocks = s.p1.stocks; p1.alive = s.p1.alive;
+        p1.guarding = s.p1.guarding; p1.weapon = s.p1.weapon; p1.stunTimer = s.p1.stunTimer;
+
+        p2.x = s.p2.x; p2.y = s.p2.y; p2.vx = s.p2.vx; p2.vy = s.p2.vy;
+        p2.facing = s.p2.facing; p2.hp = s.p2.hp; p2.stamina = s.p2.stamina;
+        p2.mana = s.p2.mana; p2.stocks = s.p2.stocks; p2.alive = s.p2.alive;
+        p2.guarding = s.p2.guarding; p2.weapon = s.p2.weapon; p2.stunTimer = s.p2.stunTimer;
+
+        gameState.matchTimer = s.timer;
+        gameState.roundNumber = s.round;
+        gameState.p1RoundWins = s.p1Wins;
+        gameState.p2RoundWins = s.p2Wins;
+
+        if (s.finished && gameState.screen === 'playing') {
+          gameState.winnerId = s.winnerId;
+          gameState.winReason = s.winReason || 'KEMENANGAN';
+          gameState.screen = 'victory';
+          document.getElementById('hudLayer').classList.add('hidden');
+          document.getElementById('hudLayer').classList.remove('flex');
+          populateVictoryScreen();
+          document.getElementById('victoryScreen').classList.remove('hidden');
+          document.getElementById('victoryScreen').classList.add('flex');
+        }
+      },
+
+      broadcastWorldSnapshot(dt) {
+        if (gameState.netRole !== 'host' || !gameState.netConnected || !p1 || !p2) return;
+        this.stateSyncTimer += dt;
+        if (this.stateSyncTimer < 0.033) return; // ~30Hz snapshot sync
+        this.stateSyncTimer = 0;
+
+        this.send({
+          type: 'world_snap',
+          snap: {
+            p1: {
+              x: p1.x, y: p1.y, vx: p1.vx, vy: p1.vy, facing: p1.facing,
+              hp: p1.hp, stamina: p1.stamina, mana: p1.mana, stocks: p1.stocks,
+              alive: p1.alive, guarding: p1.guarding, weapon: p1.weapon, stunTimer: p1.stunTimer
+            },
+            p2: {
+              x: p2.x, y: p2.y, vx: p2.vx, vy: p2.vy, facing: p2.facing,
+              hp: p2.hp, stamina: p2.stamina, mana: p2.mana, stocks: p2.stocks,
+              alive: p2.alive, guarding: p2.guarding, weapon: p2.weapon, stunTimer: p2.stunTimer
+            },
+            timer: gameState.matchTimer,
+            round: gameState.roundNumber,
+            p1Wins: gameState.p1RoundWins,
+            p2Wins: gameState.p2RoundWins,
+            finished: gameState.winnerId !== null,
+            winnerId: gameState.winnerId,
+            winReason: gameState.winReason
+          }
+        });
+      }
+    };
+
+    function clearAllInputs() {
+<!-- ... existing code ... -->
+      if (!firstPress) return;
+
+      // Online Guest mode: Guest controls P2 over the network
+      if (gameState.playMode === 'online' && gameState.netRole === 'guest') {
+        if (code === 'ArrowUp' || code === 'KeyW') netSync.send({ type: 'p2_action', action: 'jump' });
+        if (code === 'ArrowDown' || code === 'KeyS') netSync.send({ type: 'p2_action', action: 'drop' });
+        if (code === 'Slash' || code === 'KeyK' || code === 'KeyF') {
+          netSync.send({ type: 'p2_action', action: 'attack' });
+        }
+        if (code === 'KeyL' || code === 'Period' || code === 'KeyG') {
+          const dir = (keysDown.has('ArrowRight') || keysDown.has('KeyD') ? 1 : 0) -
+                      (keysDown.has('ArrowLeft') || keysDown.has('KeyA') ? 1 : 0);
+          netSync.send({ type: 'p2_action', action: dir === 0 ? 'special' : 'dash', dir });
+        }
+        if ((code === 'Semicolon' || code === 'Comma' || code === 'KeyR') && gameState.allowSwap) {
+          netSync.send({ type: 'p2_action', action: 'swap' });
+        }
+        return;
+      }
+
+      // Player 1 discrete actions (Local / Bot / Online Host)
+      if (code === 'KeyW') p1.jump();
+      if (code === 'KeyS') p1.dropPlatform();
+      if (code === 'KeyF') {
+        p1.primaryAttack(p2);
+        p1.setGuard(true);
+      }
+      if (code === 'KeyG') {
+        const dir = (keysDown.has('KeyD') ? 1 : 0) - (keysDown.has('KeyA') ? 1 : 0);
+        if (keysDown.has('ShiftLeft') || dir === 0) {
+          p1.specialSkill(p2);
+        } else {
+          p1.dash(dir);
+        }
+      }
+      if (code === 'KeyR' && gameState.allowSwap) {
+        p1.swapWeapon();
+        if (gameState.playMode === 'online' && gameState.netRole === 'host') {
+          netSync.send({ type: 'loadout_update', player: 1, weapon: p1.weapon });
+        }
+      }
+
+      // Player 2 discrete actions (when local 2-player)
+      if (gameState.playMode === 'human' && !gameState.p2Bot) {
+        if (code === 'ArrowUp') p2.jump();
+        if (code === 'ArrowDown') p2.dropPlatform();
+        if (code === 'Slash' || code === 'KeyK') {
+          p2.primaryAttack(p1);
+          p2.setGuard(true);
+        }
+        if (code === 'KeyL' || code === 'Period') {
+          const dir = (keysDown.has('ArrowRight') ? 1 : 0) - (keysDown.has('ArrowLeft') ? 1 : 0);
+          if (dir === 0) {
+            p2.specialSkill(p1);
+          } else {
+            p2.dash(dir);
+          }
+        }
+        if ((code === 'Semicolon' || code === 'Comma') && gameState.allowSwap) {
+          p2.swapWeapon();
+        }
+      }
+    });
+
+    window.addEventListener('keyup', (e) => {
+      const code = e.code;
+      keysDown.delete(code);
+
+      if (gameState.playMode === 'online' && gameState.netRole === 'guest') {
+        netSync.send({
+          type: 'p2_state',
+          left: keysDown.has('ArrowLeft') || keysDown.has('KeyA'),
+          right: keysDown.has('ArrowRight') || keysDown.has('KeyD'),
+          guard: keysDown.has('Slash') || keysDown.has('KeyK') || keysDown.has('KeyF')
+        });
+        return;
+      }
+
+      if (code === 'KeyF' && p1) {
+        p1.setGuard(false);
+      }
+      if ((code === 'Slash' || code === 'KeyK') && p2) {
+        p2.setGuard(false);
+      }
+    });
+
+    function applyContinuousInputs(dt) {
+      if (gameState.screen !== 'playing') return;
+
+      // Guest sends continuous P2 state to Host
+      if (gameState.playMode === 'online' && gameState.netRole === 'guest') {
+        netSync.send({
+          type: 'p2_state',
+          left: keysDown.has('ArrowLeft') || keysDown.has('KeyA'),
+          right: keysDown.has('ArrowRight') || keysDown.has('KeyD'),
+          guard: keysDown.has('Slash') || keysDown.has('KeyK') || keysDown.has('KeyF')
+        });
+        return;
+      }
+
+      // Player 1 continuous run
+      if (keysDown.has('KeyA')) p1.moveLeft(dt);
+      if (keysDown.has('KeyD')) p1.moveRight(dt);
+      if (!keysDown.has('KeyF')) p1.setGuard(false);
+
+      // Player 2 continuous run (Local Human / Remote Guest / AI Bot)
+      if (gameState.playMode === 'online' && gameState.netRole === 'host') {
+        if (gameState.remoteInput.left) p2.moveLeft(dt);
+        if (gameState.remoteInput.right) p2.moveRight(dt);
+        p2.setGuard(gameState.remoteInput.guard);
+      } else if (!gameState.p2Bot) {
+        if (keysDown.has('ArrowLeft')) p2.moveLeft(dt);
+        if (keysDown.has('ArrowRight')) p2.moveRight(dt);
+        if (!keysDown.has('Slash') && !keysDown.has('KeyK')) p2.setGuard(false);
+      } else {
+        botAI.update(dt, p2, p1);
+      }
+    }
+<!-- ... existing code ... -->
+    function startNewMatch(fromRemote = false) {
+      if (gameState.playMode === 'online' && gameState.netRole === 'host' && !fromRemote) {
+        netSync.send({
+          type: 'start_match',
+          winMode: gameState.winMode,
+          allowSwap: gameState.allowSwap,
+          p1Loadout: gameState.p1Loadout,
+          p2Loadout: gameState.p2Loadout
+        });
+      }
+
+      sound.ensureContext();
+<!-- ... existing code ... -->
+      const netBadge = document.getElementById('hudNetBadge');
+      if (netBadge) {
+        if (gameState.playMode === 'online') {
+          netBadge.classList.remove('hidden');
+          netBadge.textContent = gameState.netConnected
+            ? `🌐 ${gameState.netRole === 'host' ? 'HOST (P1)' : 'TAMU (P2)'}`
+            : '🌐 MENUNGGU';
+        } else {
+          netBadge.classList.add('hidden');
+        }
+      }
+
+      const timerVal = Math.max(0, Math.ceil(gameState.matchTimer));
+<!-- ... existing code ... -->
+    function syncStartScreenUI() {
+      const humanBtn = document.getElementById('modeHumanBtn');
+      const botBtn = document.getElementById('modeBotBtn');
+      const onlineBtn = document.getElementById('modeOnlineBtn');
+      const botDiffRow = document.getElementById('botDiffRow');
+      const onlineRoomPanel = document.getElementById('onlineRoomPanel');
+      const onlineRoleLabel = document.getElementById('onlineRoleLabel');
+      const p2Title = document.getElementById('p2LoadoutTitle');
+
+      const activeBtnCls = 'btn-arcade rounded-xl border px-2 py-2 text-[11px] font-bold transition bg-emerald-500/20 border-emerald-400 text-emerald-200';
+      const idleBtnCls = 'btn-arcade rounded-xl border px-2 py-2 text-[11px] font-bold transition bg-slate-800/70 border-white/10 text-slate-300 hover:bg-slate-800';
+
+      humanBtn.className = gameState.playMode === 'human' ? activeBtnCls : idleBtnCls;
+      botBtn.className = gameState.playMode === 'bot' ? activeBtnCls : idleBtnCls;
+      onlineBtn.className = gameState.playMode === 'online' ? 'btn-arcade rounded-xl border px-2 py-2 text-[11px] font-bold transition bg-sky-500/25 border-sky-400 text-sky-200' : idleBtnCls;
+
+      if (gameState.playMode === 'bot') {
+        botDiffRow.classList.remove('hidden');
+        botDiffRow.classList.add('flex');
+        onlineRoomPanel.classList.add('hidden');
+        onlineRoomPanel.classList.remove('flex');
+        p2Title.textContent = `PEMAIN 2 • BOT AI (${gameState.botDifficulty.toUpperCase()})`;
+      } else if (gameState.playMode === 'online') {
+        botDiffRow.classList.add('hidden');
+        botDiffRow.classList.remove('flex');
+        onlineRoomPanel.classList.remove('hidden');
+        onlineRoomPanel.classList.add('flex');
+        if (gameState.netRole === 'host') {
+          onlineRoleLabel.textContent = 'Perangkat Ini: PEMAIN 1 (Host)';
+          p2Title.textContent = 'PEMAIN 2 • PERANGKAT LAIN';
+        } else if (gameState.netRole === 'guest') {
+          onlineRoleLabel.textContent = 'Perangkat Ini: PEMAIN 2 (Tamu)';
+          p2Title.textContent = 'PEMAIN 2 • PERANGKAT INI';
+        } else {
+          onlineRoleLabel.textContent = 'Pilih Buat Ruang atau Masuk';
+          p2Title.textContent = 'PEMAIN 2 • PERANGKAT LAIN';
+        }
+      } else {
+        botDiffRow.classList.add('hidden');
+        botDiffRow.classList.remove('flex');
+        onlineRoomPanel.classList.add('hidden');
+        onlineRoomPanel.classList.remove('flex');
+        p2Title.textContent = 'PEMAIN 2 • MAHKOTA HIJAU';
+      }
+<!-- ... existing code ... -->
+      renderWeaponGrid('p1WeaponGrid', 'p1WeaponDesc', gameState.p1Loadout, 'border-rose-400', (w) => {
+        gameState.p1Loadout = w;
+        if (gameState.playMode === 'online' && gameState.netRole === 'host') {
+          netSync.send({ type: 'loadout_update', player: 1, weapon: w });
+        }
+      });
+      renderWeaponGrid('p2WeaponGrid', 'p2WeaponDesc', gameState.p2Loadout, 'border-emerald-400', (w) => {
+        gameState.p2Loadout = w;
+        if (gameState.playMode === 'online' && gameState.netRole === 'guest') {
+          netSync.send({ type: 'loadout_update', player: 2, weapon: w });
+        }
+      });
+    }
+
+    document.getElementById('modeHumanBtn').addEventListener('click', () => {
+      netSync.disconnect();
+      gameState.playMode = 'human';
+      gameState.p2Bot = false;
+      syncStartScreenUI();
+    });
+    document.getElementById('modeBotBtn').addEventListener('click', () => {
+      netSync.disconnect();
+      gameState.playMode = 'bot';
+      gameState.p2Bot = true;
+      syncStartScreenUI();
+    });
+    document.getElementById('modeOnlineBtn').addEventListener('click', () => {
+      gameState.playMode = 'online';
+      gameState.p2Bot = false;
+      syncStartScreenUI();
+    });
+    document.getElementById('hostRoomBtn').addEventListener('click', () => {
+      netSync.createHostRoom();
+    });
+    document.getElementById('joinRoomBtn').addEventListener('click', () => {
+      const codeVal = document.getElementById('joinCodeInput').value;
+      netSync.joinRoom(codeVal);
+    });
+    document.getElementById('copyRoomCodeBtn').addEventListener('click', () => {
+      const codeText = document.getElementById('roomCodeDisplay').textContent;
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(codeText).catch(() => {});
+      }
+    });
+    document.querySelectorAll('.bot-diff-btn').forEach((b) => {
+<!-- ... existing code ... -->
+          applyContinuousInputs(dt);
+          p1.update(dt, p2);
+          p2.update(dt, p1);
+          updateCombatEntities(dt, p1, p2);
+          netSync.broadcastWorldSnapshot(dt);
+        }
+
+        updateHud();
+<!-- ... existing code ... -->
